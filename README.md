@@ -1,20 +1,17 @@
-# trix_package_manager
-The package manager for TrixOS 
+# Trix Package Manager(TPM)
 
-### Trix package manager (TPM) is a package manager for TrixOS
+#### A Package manager for trix os or other distrobution
+### It's made by a student who in the middle school，so it maybe very unstable 
 
-## In the testing,TPM has a lot of problem , and it almost haven't any package ,please use it be careful
-## It probably very unstable！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
+## Package format
+#### Trix Package Manager use squashfs to build package ,and the package extension is named "tpm"
+#### To bulid package you need to write a <code> install.sh </code> to and write a <code> package-head </code> file to save package name,also you need to write a <code> package-tail </code> to save package path
 
-# How to build TPM
-#### You just need enter <code> make main.c </code> to build it or use <code> gcc -o tpm main.c <code> to build TPM
+## Insatll 
+#### 1.build main.c to excutable binary file 
+####   <code> gcc -o tpm main.c </code>
+#### 2.put tpm to somewhere that you can remember
+#### 3.<code> ln -sf /path/to/tpm /usr/bin </code>
 
-# How  to install 
-### You need been root
-#### 1.<code> mkdir /opt/tpm </code>
-#### 2.<code> cp /path/to/tpm /opt/tpm </code>
-#### 3.<code> mkdir /opt/tpm/cache && touch package.list && touch temp_package.list </code>
-#### 4.<code> ln -sf /opt/tpm/tpm /usr/share/bin </code>
-
-# How to use it ?
-## tpm [-i/-u/-ug/--list] [package_path] [install_path]
+## Usage
+#### just type tpm --help
