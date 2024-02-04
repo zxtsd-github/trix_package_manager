@@ -1,184 +1,221 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
+#include <unistd.h>
+#include <complex.h>
 
-#define MAX_PATH_LENGTH 100
+#define BUFFER_SIZE 10000
 
-void install(const char* package_path, const char* install_path) {
-    // 检查参数是否为空
-    if (package_path == NULL || install_path == NULL) {
-        printf("Invalid package path or install path.\n");
+char communicate[1000];
+
+void install(char *package) {
+    char buffer[BUFFER_SIZE];
+    if (getcwd(buffer, sizeof(buffer)) == NULL) {
+        perror("获取运行目录失败");
+        exit(EXIT_FAILURE);
+    }
+    printf("当前运行目录：%s\n", buffer);
+
+    printf("解压包体文件，这可能会花费一部分时间（以root权限）\n");
+    char sfs_job[BUFFER_SIZE];
+    snprintf(sfs_job, BUFFER_SIZE, "sudo unsquashfs %s %s/temp", package, buffer);
+    system(sfs_job);
+
+    char file_cd_job[BUFFER_SIZE];
+    snprintf(file_cd_job, BUFFER_SIZE, "cd %s/temp/squashfs-root", buffer);
+    system(file_cd_job);
+
+    FILE *package_head_file_read;
+    char package_head_read_job[100];
+    package_head_file_read = fopen("package_head", "r");
+    if (package_head_file_read == NULL) {
+        printf("包头未找到，结束\n");
         return;
     }
+    fgets(package_head_read_job, 100, package_head_file_read);
+    fclose(package_head_file_read);
 
-    // 检查安装路径是否存在，若不存在则创建目录
-    struct stat st;
-    if (stat(install_path, &st) == -1) {
-        if (mkdir(install_path, 0755) == -1) {
-            printf("Failed to create install directory.\n");
-            return;
-        }
-    }
+    char file_cd_2rd_part_job[BUFFER_SIZE];
+    snprintf(file_cd_2rd_part_job, BUFFER_SIZE, "cd %s", buffer);
+    system(file_cd_2rd_part_job);
 
-    // 使用系统命令复制文件
-    char copy_command[MAX_PATH_LENGTH * 2 + 20];
-    sprintf(copy_command, "cp %s %s", package_path, install_path);
-    system(copy_command);
+    printf("即将开始执行包安装步骤(以root权限)\n");
+    char install_job[BUFFER_SIZE];
+    snprintf(install_job, BUFFER_SIZE, "sudo bash %s/temp/squashfs-root/install.sh", buffer);
+    system(install_job);
 
-    // 将包名和安装路径写入包列表文件
-    FILE* fp;
-    char package_list_path[MAX_PATH_LENGTH + 20];
-    sprintf(package_list_path, "/opt/tpm/package.list");
-
-    fp = fopen(package_list_path, "a");
-    if (fp == NULL) {
-        printf("Failed to open package list file.\n");
+    char package_tail_file_path[BUFFER_SIZE];
+    snprintf(package_tail_file_path, BUFFER_SIZE, "%s/temp/squashfs-root/package-tail", buffer);
+    FILE *package_tail_file_read;
+    char package_tail_read_job[100];
+    package_tail_file_read = fopen(package_tail_file_path, "r");
+    if (package_tail_file_read == NULL) {
+        printf("包尾未找到，结束");
         return;
     }
+    fgets(package_tail_read_job, 100, package_tail_file_read);
+    fclose(package_tail_file_read);
 
-    fprintf(fp, "%s,%s\n", package_path, install_path);
+    char cp_uninstall_script_job[BUFFER_SIZE];
+    snprintf(cp_uninstall_script_job, BUFFER_SIZE, "bash %s/temp/squashfs-root/uninstall.sh", buffer);
+    system(cp_uninstall_script_job);
 
-    fclose(fp);
+    char list_file_dir[BUFFER_SIZE];
+    snprintf(list_file_dir, BUFFER_SIZE, "%s/installed-list", buffer);
+    FILE *LIST_ADD = fopen(list_file_dir, "a+");
+    if (LIST_ADD == NULL) {
+        printf("找不到包文件集，结束\n");
+        return;
+    }
+    fprintf(LIST_ADD, "\n%s", package_head_read_job);
+    fclose(LIST_ADD);
 
-    printf("Installation succeeded.\n");
+    char add_pkg[BUFFER_SIZE];
+    snprintf(add_pkg, BUFFER_SIZE, "%s/pkg_dir/%s", buffer, package_head_read_job);
+    FILE *FILE_ADD = fopen(add_pkg, "a+");
+    fprintf(FILE_ADD, "%s", package_tail_read_job);
+    fclose(FILE_ADD);
+
+    printf("安装完成，进行清理操作（以root权限运行）\n");
+    char rm_file_job[BUFFER_SIZE];
+    snprintf(rm_file_job, BUFFER_SIZE, "sudo rm -rf %s/temp/*", buffer);
+    system(rm_file_job);
 }
 
-void uninstall(const char* package_name, const char* install_path) {
-    // 检查参数是否为空
-    if (package_name == NULL || install_path == NULL) {
-        printf("Invalid package name or install path.\n");
+void uninstall(char *uninstall_package){
+    char buffer[BUFFER_SIZE];
+    if (getcwd(buffer, sizeof(buffer)) == NULL) {
+        perror("获取运行目录失败");
+        exit(EXIT_FAILURE);
+    }
+    printf("当前运行目录：%s\n", buffer);
+
+    char list_file_dir[BUFFER_SIZE];
+    snprintf(list_file_dir, BUFFER_SIZE, "%s/pkg_dir/%s", buffer, uninstall_package);
+    FILE *list_path = fopen(list_file_dir, "r");
+    if (list_path == NULL){
+        printf("软件未安装，结束");
         return;
     }
+    fclose(list_path);
 
-    // 删除安装目录中的文件
-    char remove_command[MAX_PATH_LENGTH + 20];
-    sprintf(remove_command, "rm -rf %s/%s", install_path, package_name);
-    system(remove_command);
+    char *pkg_path = malloc(sizeof(char) * BUFFER_SIZE);
+    if (pkg_path == NULL) {
+        printf("内存分配失败\n");
+        exit(EXIT_FAILURE);
+    }
 
-    // 从包列表中移除该包名和安装路径
-    FILE* fp;
-    char package_list_path[MAX_PATH_LENGTH + 20];
-    sprintf(package_list_path, "/opt/tpm/package.list");
-
-    fp = fopen(package_list_path, "r");
-    if (fp == NULL) {
-        printf("Failed to open package list file.\n");
+    FILE *list_file = fopen(list_file_dir, "r");
+    if (list_file == NULL) {
+        printf("找不到软件包路径，结束\n");
+        free(pkg_path);
         return;
     }
+    fgets(pkg_path, BUFFER_SIZE, list_file);
+    fclose(list_file);
 
-    // 创建临时文件
-    FILE* temp_fp;
-    char temp_package_list_path[MAX_PATH_LENGTH + 20];
-    sprintf(temp_package_list_path, "/opt/tpm/temp_package.list");
-
-    temp_fp = fopen(temp_package_list_path, "w");
-    if (temp_fp == NULL) {
-        printf("Failed to create temporary package list file.\n");
-        fclose(fp);
-        return;
+    printf("删除软件操作不可逆，您确定要删除该软件包吗？（y/N）");
+    char yN[10];
+    scanf("%s", yN);
+    if (strcmp(yN, "y") == 0){
+        char uninstall_command[BUFFER_SIZE];
+        snprintf(uninstall_command, BUFFER_SIZE, "rm -rf %s", pkg_path);
+        system(uninstall_command);
+    } else if (strcmp(yN, "n") == 0) {
+        printf("操作已取消，结束");
+    } else {
+        printf("输入无效，操作已取消，结束");
     }
 
-    char line[MAX_PATH_LENGTH + 1];
-
-    // 逐行读取包列表文件并写入临时文件
-    while (fgets(line, sizeof(line), fp)) {
-        line[strcspn(line, "\n")] = '\0'; // 移除换行符
-
-        char stored_package_name[MAX_PATH_LENGTH + 1];
-        char stored_install_path[MAX_PATH_LENGTH + 1];
-
-        sscanf(line, "%[^,],%s", stored_package_name, stored_install_path);
-
-        if (strcmp(stored_package_name, package_name) != 0 || strcmp(stored_install_path, install_path) != 0) {
-            fprintf(temp_fp, "%s\n", line);
-        }
-    }
-
-    fclose(fp);
-    fclose(temp_fp);
-
-    // 删除旧的包列表文件
-    remove(package_list_path);
-
-    // 将临时文件重命名为包列表文件
-    rename(temp_package_list_path, package_list_path);
-
-    printf("Uninstallation succeeded.\n");
+    free(pkg_path);
 }
 
-void upgrade(const char* package_path, const char* install_path) {
-    // 首先运行卸载函数
-    uninstall(package_path, install_path);
+void update(char *update_package){
+    char buffer[BUFFER_SIZE];
+    if (getcwd(buffer, sizeof(buffer)) == NULL) {
+        perror("获取运行目录失败");
+        exit(EXIT_FAILURE);
+    }
+    printf("当前运行目录：%s\n", buffer);
 
-    // 然后运行安装函数
-    install(package_path, install_path);
-}
+    printf("解压包体文件，这可能会花费一部分时间（以root权限）\n");
+    char update_sfs_job[BUFFER_SIZE];
+    snprintf(update_sfs_job, BUFFER_SIZE, "sudo unsquashfs %s %s/temp", update_package, buffer);
+    system(update_sfs_job);
 
-void list() {
-    FILE* fp;
-    char package_list_path[MAX_PATH_LENGTH + 20];
-    sprintf(package_list_path, "/opt/tpm/package.list");
-
-    fp = fopen(package_list_path, "r");
-    if (fp == NULL) {
-        printf("Failed to open package list file.\n");
+    char update_script_dir[BUFFER_SIZE];
+    snprintf(update_script_dir, BUFFER_SIZE, "%s/temp/squashfs-root/update.sh", buffer);
+    FILE *update = fopen(update_script_dir, "r");
+    if (update == NULL) {
+        printf("该软件没有升级脚本，请联系开发者或重新安装\n");
         return;
     }
+    fclose(update);
 
-    char line[MAX_PATH_LENGTH + MAX_PATH_LENGTH + 3];
-
-    // 逐行读取包列表文件并解析打印
-    while (fgets(line, sizeof(line), fp)) {
-        line[strcspn(line, "\n")] = '\0'; // 移除换行符
-
-        char package_path[MAX_PATH_LENGTH + 1];
-        char install_path[MAX_PATH_LENGTH + 1];
-
-        sscanf(line, "%[^,],%s", package_path, install_path);
-
-        printf("Package: %s\nInstall Path: %s\n\n", package_path, install_path);
-    }
-
-    fclose(fp);
+    char update_command[BUFFER_SIZE];
+    snprintf(update_command, BUFFER_SIZE, "bash %s/temp/squashfs-root/update.sh", buffer);
+    system(update_command);
 }
-    void ver(){
-		printf("ver 1.0\n  Code and build by zxtsd \n License MIT\n");
-        return 0;
-    }
 
+void list(){
+    char buffer[BUFFER_SIZE];
+    if (getcwd(buffer, sizeof(buffer)) == NULL) {
+        perror("获取运行目录失败");
+        exit(EXIT_FAILURE);
+    }
+    printf("当前运行目录：%s\n", buffer);
+
+    char list_file_dir[BUFFER_SIZE];
+    snprintf(list_file_dir, BUFFER_SIZE, "%s/installed-list", buffer);
+    char list_command[BUFFER_SIZE];
+    snprintf(list_command, BUFFER_SIZE, "cat %s", list_file_dir);
+    system(list_command);
+}
+
+void help(){
+    printf("Trix Package Manager\n");
+    printf("by zxtsd\n");
+    printf("Usage tpm [-i/-u/--list/--help] [包路径/包名/无需参数/无需参数]\n");
+    printf("-i  安装软件包\n");
+    printf("-u  卸载软件包\n");
+    printf("--list  已安装软件列表\n");
+    printf("--help 展示该帮助\n");
+}
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        printf("You should provide the package path and install path as arguments.\n");
-        return 124;
-    }
+    if (argc > 2) {
+        if (strcmp(argv[1], "-i") == 0) {
+            install(argv[2]);
+            return 0;
+        }else {
+            printf("参数错误，结束\n");
+            return 127;
+        }
 
-    if (strcmp(argv[1], "-i") == 0) {
-        const char* package_path = argv[2];
-        const char* install_path = argv[3];
-        install(package_path, install_path);
-    }
-    else if (strcmp(argv[1], "-u") == 0) {
-        const char* package_name = argv[2];
-        const char* install_path = argv[3];
-        uninstall(package_name, install_path);
-    }
-    else if (strcmp(argv[1], "-ug") == 0) {
-        const char* package_path = argv[2];
-        const char* install_path = argv[3];
-        upgrade(package_path, install_path);
-    }
-    else if (strcmp(argv[1], "--list") == 0) {
-        list();
-    }
-    else if (strcmp(argv[1],"-v") == 0) {
-        ver();
-    }
-    else {
-        printf("Invalid command.\n");
-        return 126;
-    }
+        if(strcmp(argv[1], "-u") == 0){
+            uninstall(argv[2]);
+            return 0;
+        }else {
+            printf("参数错误，结束\n");
+            return 127;
+        }
 
+        if (strcmp(argv[1], "--list") == 0) {
+            list();
+            return 0;    
+        }else {
+            printf("参数错误，结束\n");
+            return 127;
+        }
+        
+        if(strcmp(argv[1], "--help") == 0){
+            help();
+            return 0;
+        }else {
+            printf("参数错误，结束\n");
+            return 127;
+        }
+    }
+    help();
     return 0;
 }
