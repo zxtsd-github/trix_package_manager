@@ -14,7 +14,7 @@ void install(char *package) {
         perror("获取运行目录失败");
         exit(EXIT_FAILURE);
     }
-    printf("当前运行目录：%s\n", buffer);
+    //printf("当前运行目录：%s\n", buffer);
 
     printf("解压包体文件，这可能会花费一部分时间（以root权限）\n");
     char sfs_job[BUFFER_SIZE];
@@ -88,7 +88,7 @@ void uninstall(char *uninstall_package){
         perror("获取运行目录失败");
         exit(EXIT_FAILURE);
     }
-    printf("当前运行目录：%s\n", buffer);
+    //printf("当前运行目录：%s\n", buffer);
 
     char list_file_dir[BUFFER_SIZE];
     snprintf(list_file_dir, BUFFER_SIZE, "%s/pkg_dir/%s", buffer, uninstall_package);
@@ -136,7 +136,7 @@ void update(char *update_package){
         perror("获取运行目录失败");
         exit(EXIT_FAILURE);
     }
-    printf("当前运行目录：%s\n", buffer);
+    //printf("当前运行目录：%s\n", buffer);
 
     printf("解压包体文件，这可能会花费一部分时间（以root权限）\n");
     char update_sfs_job[BUFFER_SIZE];
@@ -175,8 +175,8 @@ void list(){
 void help(){
     printf("Trix Package Manager\n");
     printf("by zxtsd\n");
-    printf("Usage tpm [-i/-u/--list/--help] [包路径/包名/无需参数/无需参数]\n");
-    printf("-i  安装软件包\n");
+    printf("Usage tpm [-i/-u/--list/--help] [包路径/包名/无需参数/无需参数] [升级包路径]\n");
+    printf("-i  安装软件包  [tpm -i []]\n");
     printf("-u  卸载软件包\n");
     printf("--list  已安装软件列表\n");
     printf("--help 展示该帮助\n");
