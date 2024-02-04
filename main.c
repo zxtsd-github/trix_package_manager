@@ -56,9 +56,9 @@ void install(char *package) {
     fgets(package_tail_read_job, 100, package_tail_file_read);
     fclose(package_tail_file_read);
 
-    char cp_uninstall_script_job[BUFFER_SIZE];
-    snprintf(cp_uninstall_script_job, BUFFER_SIZE, "bash %s/temp/squashfs-root/uninstall.sh", buffer);
-    system(cp_uninstall_script_job);
+    //char cp_uninstall_script_job[BUFFER_SIZE];
+    //snprintf(cp_uninstall_script_job, BUFFER_SIZE, "bash %s/temp/squashfs-root/uninstall.sh", buffer);
+    //system(cp_uninstall_script_job);
 
     char list_file_dir[BUFFER_SIZE];
     snprintf(list_file_dir, BUFFER_SIZE, "%s/installed-list", buffer);
